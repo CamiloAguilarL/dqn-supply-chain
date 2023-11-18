@@ -5,11 +5,32 @@ import gymnasium as gym
 from gymnasium import spaces
 import math
 
+gym.logger.set_level(40)
 
 class SupplyChainEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 240}
 
-    def __init__(self, render_mode=None, render_fps=240, num_periods=10, num_products=1, num_suppliers=1, max_demand=1000, min_price=1, max_price=50, max_quantity=2000, perishability=0.3, buy_bins=10, sell_min_price=5, sell_max_price=200):
+    def __init__(self, 
+                 action_mode="discrete",
+                 render_mode=None, 
+                 render_fps=240, 
+                 num_periods=10, 
+                 num_products=1, 
+                 num_suppliers=1, 
+                 max_demand=100, 
+                 min_price=20, 
+                 max_price=30, 
+                 max_quantity=150, 
+                 perishability=0.1, 
+                 buy_bins=5, 
+                 sell_min_price=60, 
+                 sell_max_price=70,
+                 min_transport_cost=200,
+                 max_transport_cost=300,
+                 demand_penalty=10,
+                 holding_penalty=3):
+        
+        self.action_mode = action_mode
         self.num_periods = num_periods
         self.num_products = num_products
         self.num_suppliers = num_suppliers
@@ -21,7 +42,10 @@ class SupplyChainEnv(gym.Env):
         self.perishability = perishability
         self.sell_min_price = sell_min_price
         self.sell_max_price = sell_max_price
-        self.sell_price = self.np_random.uniform(low=sell_min_price, high=sell_max_price, size=self.num_products)
+        self.min_transport_cost = min_transport_cost
+        self.max_transport_cost = max_transport_cost
+        self.demand_penalty = demand_penalty
+        self.holding_penalty = holding_penalty
         self.period = 0
         self.window_size = 512  # The size of the PyGame window
 
@@ -47,11 +71,16 @@ class SupplyChainEnv(gym.Env):
     def step(self, action):
         # Decompose action into purchasing and routing (simplified for this example)
         purchasing_decision = action  # This is a simplification
-        # Update inventory based on purchasing decision and existing inventory
-        purchased_inventory = np.sum(self.state['quantity'] * purchasing_decision/self.buy_bins, axis=0, dtype=int)  # Total purchased per product
 
-        cost = np.sum(purchased_inventory * self.state['price'])
+        if self.action_mode == "discrete":
+            # Update inventory based on purchasing decision and existing inventory
+            purchased_inventory = np.sum(self.state['quantity'] * purchasing_decision/self.buy_bins, axis=0, dtype=int)  # Total purchased per product
+        else:
+            purchased_inventory = np.sum(purchasing_decision, axis=0, dtype=int)
 
+        suppliers_visited = np.where(np.sum(purchasing_decision, axis=1) > 0, 1, 0)
+
+        cost = np.sum(purchased_inventory * self.state['price']) + np.sum(suppliers_visited * self.transport_cost)
         self.state['inventory'] += purchased_inventory
 
         # Calculate sales and update inventory based on demand
@@ -63,7 +92,7 @@ class SupplyChainEnv(gym.Env):
         revenue = np.sum(sales * self.sell_price)
 
         # Calculate penalty for not meeting demand
-        penalty = np.sum((self.state['demand'] - sales) * 10)
+        penalty = np.sum((self.state['demand'] - sales) * self.demand_penalty) + np.sum(self.state['inventory'] * self.holding_penalty)
         penalty = max(0, penalty)  # Ensure penalty is not negative
 
         # Calculate reward (revenue minus penalty)
@@ -79,8 +108,8 @@ class SupplyChainEnv(gym.Env):
         done = self.period >= self.num_periods
 
         info = {}  # Additional info, if any
-
         return self.state, reward, done, False, info
+    
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
@@ -91,6 +120,9 @@ class SupplyChainEnv(gym.Env):
             "price": self.np_random.integers(low=self.min_price, high=self.max_price, size=(self.num_suppliers, self.num_products)),
             "quantity": self.np_random.integers(low=0, high=self.max_quantity, size=(self.num_suppliers, self.num_products)),
         }
+        self.sell_price = self.np_random.uniform(low=self.sell_min_price, high=self.sell_max_price, size=self.num_products)
+        self.transport_cost = self.np_random.uniform(low=self.min_transport_cost, high=self.max_transport_cost, size=self.num_suppliers)
+
         self.period = 0
         self.state = initial_state
         self.info = {}
