@@ -24,7 +24,7 @@ class SupplyChainEnv(gym.Env):
                  min_quantity=100,
                  max_quantity=150, 
                  perishability=0.05,
-                 buy_bins=5, 
+                 buy_bins=3, 
                  sell_min_price=60, 
                  sell_max_price=70,
                  min_transport_cost=500,

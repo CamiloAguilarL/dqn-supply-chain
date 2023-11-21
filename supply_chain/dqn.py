@@ -1,21 +1,23 @@
 from agent_interface import AgentInterface
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import Huber
 from collections import deque
-import random
-
+import itertools
 import numpy as np
+import random
+import copy
+
 
 class DQNAgent(AgentInterface):
-    def __init__(self, env):
+    def __init__(self, env, learning_rate=0.2, discount_factor=0.9, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
         self.env = env
         learning_rate = 0.001
         sample_observation = env.observation_space.sample()
         flattened_observation = np.concatenate([sample_observation[key].flatten() for key in sample_observation])
         input_shape = flattened_observation.shape
-        actions = env.buy_bins ** (env.action_space.shape[0] * env.action_space.shape[1])
+        actions = (env.buy_bins + 1) ** (env.action_space.shape[0] * env.action_space.shape[1])
 
         model = Sequential()
         model.add(Flatten(input_shape=input_shape))
@@ -34,98 +36,107 @@ class DQNAgent(AgentInterface):
         target_model.set_weights(model.get_weights())
         self.target_model = target_model
 
-    def get_qs(self, state):
-        return self.model.predict(state.reshape([1, state.shape[0]]))[0]
+        self.replay_memory = deque(maxlen=50_000)
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.exploration_prob = exploration_prob
+        self.min_exploration_prob = min_exploration_prob
+        self.decay_rate = decay_rate
 
-    def train(self, replay_memory, done):
+        combinations = list(itertools.product(range(self.env.num_suppliers), range(self.env.num_products)))
+        buy_combinations = list(itertools.product(range(self.env.buy_bins + 1), repeat=self.env.num_suppliers*self.env.num_products))
+        space = []
+        for b in buy_combinations:
+            action_list = list(zip(combinations, b))
+            action_items = ((i, j, k) for (i, j), k in action_list)
+            space.append(tuple(action_items))
+
+        self.actions_array = space
+
+    def update(self, state, action, next_state, reward):
         learning_rate = 0.7 # Learning rate
         discount_factor = 0.618
 
         MIN_REPLAY_SIZE = 1000
-        if len(replay_memory) < MIN_REPLAY_SIZE:
+        if len(self.replay_memory) < MIN_REPLAY_SIZE:
             return
 
         batch_size = 64 * 2
-        mini_batch = random.sample(replay_memory, batch_size)
-        current_states = np.array([transition[0] for transition in mini_batch])
-        current_qs_list = self.model.predict(current_states)
-        new_current_states = np.array([transition[3] for transition in mini_batch])
-        future_qs_list = self.target_model.predict(new_current_states)
+        mini_batch = random.sample(self.replay_memory, batch_size)
+        current_states = np.array([self._get_state_array(transition[0]) for transition in mini_batch])
+        current_qs_list = self.model.predict(current_states, verbose = 0)
+
+        new_current_states = np.array([self._get_state_array(transition[3]) for transition in mini_batch])
+        future_qs_list = self.target_model.predict(new_current_states, verbose = 0)
 
         X = []
         Y = []
+
         for index, (observation, action, reward, new_observation, done) in enumerate(mini_batch):
-            if not done:
-                max_future_q = reward + discount_factor * np.max(future_qs_list[index])
-            else:
-                max_future_q = reward
-
+            max_future_q = reward + discount_factor * np.max(future_qs_list[index])
+            action_index = self._get_action_index(action)
             current_qs = current_qs_list[index]
-            current_qs[action] = (1 - learning_rate) * current_qs[action] + learning_rate * max_future_q
-
+            current_qs[action_index] = (1 - learning_rate) * current_qs[action_index] + learning_rate * max_future_q
+            observation = self._get_state_array(observation)
             X.append(observation)
             Y.append(current_qs)
         self.model.fit(np.array(X), np.array(Y), batch_size=batch_size, verbose=0, shuffle=True)
 
+    def _get_state_array(self, state):
+        return np.concatenate([state[key].flatten() for key in state])
 
-    def choose_action(self, state, greedy=True):
-        pass
+    def _get_action_index(self, action):
+        action_key = tuple((i, j, action[i, j]) for i in range(self.env.unwrapped.num_suppliers) for j in range(self.env.unwrapped.num_products))
+        return self.actions_array.index(action_key)
     
-    def update(self, state, action, next_state, reward):
-        pass
-        
+    def choose_action(self, state, greedy=False):
+        state_array = self._get_state_array(state).reshape(1, -1)
+        # Exploration-exploitation trade-off
+        if np.random.rand() < self.exploration_prob and not greedy:
+            action_index = np.random.randint(0, len(self.actions_array))
+            action_key = self.actions_array[action_index]
+        else:
+            action_index = self.model.predict(state_array, verbose = 0).flatten()
+            action = np.argmax(action_index)
+            action_key = self.actions_array[action]
 
-    def train(self, num_episodes=1000, load=False, save=False, train=True, filename="q_table.npy", seed=None):
-        epsilon = 1 # Epsilon-greedy algorithm in initialized at 1 meaning every step is random at the start
-        max_epsilon = 1 # You can't explore more than 100% of the time
-        min_epsilon = 0.01 # At a minimum, we'll always explore 1% of the time
-        decay = 0.01
+        action = np.zeros((self.env.unwrapped.num_suppliers, self.env.unwrapped.num_products), dtype=int)
+        for i, j, k in action_key:
+            action[i][j] = k
+        return action
 
-        replay_memory = deque(maxlen=50_000)
 
-        # X = states, y = actions
-        X = []
-        y = []
+    def train(self, num_episodes=1000, load=False, save=False, train=True, filename="dqn.keras", seed=None):
+        if load:
+            self.model = load_model(filename)
+            self.target_model.set_weights(self.model.get_weights())
+        if train:
+            rewards = []
+            update_target = 0
 
-        steps_to_update_target_model = 0
+            for episode in range(num_episodes):
+                state, info = self.env.reset(seed=seed)
+                score = 0
+                while True:
+                    update_target += 1
+                    action = self.choose_action(state)
+                    prev_state = copy.deepcopy(state)                
+                    next_state, reward, terminated, truncated, info = self.env.step(action)
+                    self.replay_memory.append([state, action, reward, next_state, terminated])
+                    if update_target % 2 == 0 or terminated:
+                        self.update(prev_state, action, next_state, reward)
+                    state = next_state
+                    score += reward
+                    if terminated or truncated:
+                        if update_target >= 25:
+                            self.target_model.set_weights(self.model.get_weights())
+                            update_target = 0
+                        break
+                rewards.append(score/self.env.unwrapped.num_periods)
+                self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
+                if episode % 50 == 0:
+                    print(f"Training Agent: DQN, Episode: {episode}, Score: {score}")
+            if save:
+                self.model.save(filename)
 
-        for episode in range(num_episodes):
-            total_training_rewards = 0
-            state, info = self.env.reset()
-            done = False
-            while True:
-                steps_to_update_target_model += 1
-
-                random_number = np.random.rand()
-                # 2. Explore using the Epsilon Greedy Exploration Strategy
-                if random_number <= epsilon:
-                    # Explore
-                    action = self.env.action_space.sample()
-                else:
-                    encoded = state
-                    encoded_reshaped = encoded.reshape([1, encoded.shape[0]])
-                    predicted = self.model.predict(encoded_reshaped).flatten()
-                    action = np.argmax(predicted)
-                
-                next_state, reward, done, info = self.env.step(action)
-                replay_memory.append([state, action, reward, next_state, done])
-
-                # 3. Update the Main Network using the Bellman Equation
-                if steps_to_update_target_model % 4 == 0 or done:
-                    self.train(replay_memory, done)
-
-                state = next_state
-                total_training_rewards += reward
-
-                if done:
-                    print('Total training rewards: {} after n steps = {} with final reward = {}'.format(total_training_rewards, episode, reward))
-                    total_training_rewards += 1
-
-                    if steps_to_update_target_model >= 100:
-                        print('Copying main network weights to the target network weights')
-                        self.target_model.set_weights(self.model.get_weights())
-                        steps_to_update_target_model = 0
-                    break
-
-            epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * episode)
-        env.close()
+            return rewards

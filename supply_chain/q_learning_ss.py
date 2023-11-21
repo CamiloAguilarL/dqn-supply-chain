@@ -5,7 +5,7 @@ import copy
 from agent_interface import AgentInterface
 
 class QLearningSSAgent(AgentInterface):
-    def __init__(self, env, bins=5, learning_rate=0.05, discount_factor=0.9, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.0001):
+    def __init__(self, env, bins=5, learning_rate=0.2, discount_factor=0.9, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
         self.env = env
         self.observation_space = env.unwrapped.observation_space
         self.action_space = env.unwrapped.action_space

@@ -9,16 +9,13 @@ from q_learning import QLearningAgent
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
-import copy
-
 
 # Use just one agent to see training curve (add seed to the train)
 # Use multiple agents to compare using box plots
 agents = [Agents.DQN]
 
 seed = 42
-episodes = range(1000)
+episodes = range(100)
 
 agents_rewards = []
 single_rewards = []
@@ -29,13 +26,13 @@ for agent_name in agents:
     if agent_name == Agents.QLEARNINGSS:
         env = gymnasium.make('supply_chain/SupplyChain-v0', action_mode='continuous')
         agent = QLearningSSAgent(env)
-        single_rewards = agent.train(num_episodes=30000)
+        single_rewards = agent.train(num_episodes=50000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.QLEARNING:
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = QLearningAgent(env)
-        # single_rewards = agent.train(num_episodes=50000, seed=seed)
+        single_rewards = agent.train(num_episodes=50000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.RQ:
@@ -47,9 +44,8 @@ for agent_name in agents:
     elif agent_name == Agents.DQN:
         from dqn import DQNAgent
         env = gymnasium.make('supply_chain/SupplyChain-v0')
-        print(env.action_space.shape)
         agent = DQNAgent(env)
-        agent.train(num_episodes=100)
+        single_rewards = agent.train(num_episodes=5000, seed=seed)
 
     if len(agents) > 1:
         for _ in episodes:
@@ -57,11 +53,8 @@ for agent_name in agents:
             score = 0
             while True:
                 action = agent.choose_action(state, greedy=True)
-                prev_state = copy.deepcopy(state)
                 next_state, reward, terminated, truncated, info = env.step(action)
-                agent.update(prev_state, action, next_state, reward)
                 score += reward
-
                 state = next_state
                 if terminated or truncated:
                     break
@@ -82,4 +75,5 @@ else:
     ax = fig.add_axes([0, 0, 1, 1])
     ax.boxplot(agents_rewards)
 
+plt.savefig('DQN-42-5000.png')
 plt.show()
