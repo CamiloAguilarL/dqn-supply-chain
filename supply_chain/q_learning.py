@@ -104,7 +104,7 @@ class QLearningAgent(AgentInterface):
                         break
                 rewards.append(score/self.env.unwrapped.num_periods)
                 self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
-                if _ % 500 == 0:
+                if _ % 1 == 0:
                     print(f"Training Agent: Q Learning, Episode: {_}, Score: {score}")
             if save:
                 np.save(filename, self.q_table)

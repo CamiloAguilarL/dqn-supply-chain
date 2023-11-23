@@ -12,7 +12,7 @@ import pandas as pd
 
 # Use just one agent to see training curve (add seed to the train)
 # Use multiple agents to compare using box plots
-agents = [Agents.DQN]
+agents = [Agents.QLEARNING]
 
 seed = 42
 episodes = range(100)
@@ -26,13 +26,13 @@ for agent_name in agents:
     if agent_name == Agents.QLEARNINGSS:
         env = gymnasium.make('supply_chain/SupplyChain-v0', action_mode='continuous')
         agent = QLearningSSAgent(env)
-        single_rewards = agent.train(num_episodes=50000, seed=seed)
+        single_rewards = agent.train(num_episodes=10000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.QLEARNING:
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = QLearningAgent(env)
-        single_rewards = agent.train(num_episodes=50000, seed=seed)
+        single_rewards = agent.train(num_episodes=10000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.RQ:
