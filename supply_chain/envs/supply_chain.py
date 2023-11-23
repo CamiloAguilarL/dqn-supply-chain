@@ -15,21 +15,21 @@ class SupplyChainEnv(gym.Env):
                  render_mode=None, 
                  render_fps=240, 
                  num_periods=20, 
-                 num_products=5,
-                 num_suppliers=20,
+                 num_products=1,
+                 num_suppliers=4,
                  min_demand=1000,
                  max_demand=1500, 
                  sell_price_percentage=0.1, 
                  min_quantity=400,
                  max_quantity=900, 
                  perishability=0.1,
-                 buy_bins=3, 
+                 buy_bins=2, 
                  min_price=0.5, 
                  max_price=1.2,
                  min_transport_time=500,
                  max_transport_time=600,
                  unit_transport_cost=1,
-                 backorder_price_percentage=250,
+                 backorder_price_percentage=2,
                  vehicle_capacity=60,
                  loading_time=10,
                  travel_speed=60,
@@ -160,7 +160,6 @@ class SupplyChainEnv(gym.Env):
         }
         self.sell_price = np.mean(self.mean_price, axis=0) * (1 + self.sell_price_percentage)
         self.backorder_price = self.sell_price * self.backorder_price_percentage
-
         self.period = 0
         self.state = initial_state
         self.info = {}

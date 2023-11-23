@@ -12,8 +12,7 @@ import pandas as pd
 
 # Use just one agent to see training curve (add seed to the train)
 # Use multiple agents to compare using box plots
-agents = [Agents.QLEARNING, Agents.QLEARNINGSS]
-
+agents = [Agents.QLEARNING]
 seed = 42
 episodes = range(100)
 
@@ -26,13 +25,13 @@ for agent_name in agents:
     if agent_name == Agents.QLEARNINGSS:
         env = gymnasium.make('supply_chain/SupplyChain-v0', action_mode='continuous')
         agent = QLearningSSAgent(env)
-        single_rewards = agent.train(num_episodes=10, seed=seed)
+        single_rewards = agent.train(num_episodes=10000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.QLEARNING:
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = QLearningAgent(env)
-        single_rewards = agent.train(num_episodes=10, seed=seed)
+        single_rewards = agent.train(num_episodes=20000, seed=seed, save=True, filename="q_table.npy")
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.RQ:
@@ -69,11 +68,11 @@ fig = plt.figure(figsize=(12, 6))
 
 if len(agents) <= 1:
     rewards_df = pd.DataFrame(single_rewards, columns=["Reward"])
-    rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=100).mean()
+    rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=300).mean()
     plt.plot(rewards_df["Moving Average"], label="Moving Average (10)", color="red")
 else:
     ax = fig.add_axes([0, 0, 1, 1])
     ax.boxplot(agents_rewards, showfliers=False)
 
-plt.savefig('DQN-42-5000.png')
+plt.savefig('QLEARNING-42-20000.png')
 plt.show()

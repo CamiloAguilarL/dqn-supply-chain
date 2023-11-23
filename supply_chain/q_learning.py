@@ -5,7 +5,7 @@ import copy
 from agent_interface import AgentInterface
 
 class QLearningAgent(AgentInterface):
-    def __init__(self, env, bins=5, learning_rate=0.2, discount_factor=0.9, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
+    def __init__(self, env, bins=2, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00001):
         self.env = env
         self.observation_space = env.unwrapped.observation_space
         self.action_space = env.unwrapped.action_space
@@ -102,10 +102,10 @@ class QLearningAgent(AgentInterface):
                     score += reward
                     if terminated or truncated:
                         break
-                rewards.append(score/self.env.unwrapped.num_periods)
+                rewards.append(score/self.env.num_periods)
                 self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
-                if _ % 1 == 0:
-                    print(f"Training Agent: Q Learning, Episode: {_}, Score: {score}")
+                if _ % 100 == 0:
+                    print(f"Training Agent: Q Learning, Episode: {_}, Score: {score/self.env.num_periods}")
             if save:
                 np.save(filename, self.q_table)
 
