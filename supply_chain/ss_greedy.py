@@ -3,10 +3,10 @@ import numpy as np
 from agent_interface import AgentInterface
 
 class SSAgent(AgentInterface):
-    def __init__(self, env, reorder_percentage=0.5, replenish_percentage=2):
+    def __init__(self, env, reorder_percentage=1, replenish_percentage=3):
         self.env = env
-        self.reorder_point = reorder_percentage*env.unwrapped.max_demand
-        self.replenish_quantity = replenish_percentage*env.unwrapped.max_demand
+        self.reorder_point = reorder_percentage*env.max_demand
+        self.replenish_quantity = replenish_percentage*env.max_demand
 
     def choose_action(self, state, greedy=True):
         inventory = state['inventory']  # Assuming observation is the inventory level
@@ -17,9 +17,9 @@ class SSAgent(AgentInterface):
             if product < self.reorder_point:
                 visited_suppliers = []
                 total_quantity = product
-                while len(visited_suppliers) < self.env.unwrapped.num_suppliers:
-                    min_price = price[0][i]
-                    min_price_index = 0
+                while len(visited_suppliers) < self.env.num_suppliers:
+                    min_price = self.env.max_price * 10
+                    min_price_index = -1
                     for j, supplier in enumerate(price):
                         if supplier[i] < min_price and j not in visited_suppliers:
                             min_price = supplier[i]
@@ -27,8 +27,8 @@ class SSAgent(AgentInterface):
                     visited_suppliers.append(min_price_index)
                     buy_quantity = min(self.replenish_quantity - total_quantity, quantity[min_price_index, i])
                     total_quantity += buy_quantity
-                    action[j,i] = buy_quantity
-                    if total_quantity > self.replenish_quantity:
+                    action[min_price_index,i] = buy_quantity
+                    if total_quantity >= self.replenish_quantity:
                         break
 
         return action

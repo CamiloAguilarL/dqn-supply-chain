@@ -84,6 +84,7 @@ class SupplyChainEnv(gym.Env):
     def step(self, action):
         # Decompose action into purchasing and routing (simplified for this example)
         purchasing_decision = action  # This is a simplification
+
         if self.action_mode == "discrete":
             # Update inventory based on purchasing decision and existing inventory
             purchased_quantity = self.state['quantity'] * purchasing_decision/self.buy_bins
@@ -115,7 +116,7 @@ class SupplyChainEnv(gym.Env):
 
         # Update state randomly (for demand, price, and quantity)
         self.state['demand'] = np.clip(self.np_random.normal(self.mean_demand, 0.1, self.num_products), 0, 2*self.mean_demand)
-        self.state['price'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 0)
+        self.state['price'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price)
         self.state['quantity'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
         self.sell_price = np.mean(self.mean_price, axis=0) * (1 + self.sell_price_percentage)
         self.backorder_price = self.sell_price * self.backorder_price_percentage
@@ -139,6 +140,11 @@ class SupplyChainEnv(gym.Env):
                 products_suppliers[i][self.np_random.integers(0, self.num_products)] = 1
             coordinates = (self.np_random.uniform(-self.region_size/2, self.region_size/2), self.np_random.uniform(-self.region_size/2, self.region_size/2))
             transport_time[i] = (math.sqrt(coordinates[0]**2 + coordinates[1]**2)/self.travel_speed)*60 + self.loading_time
+
+        for i in range(self.num_products):
+            if products_suppliers[:,i].sum() == 0:
+                products_suppliers[self.np_random.integers(0, self.num_suppliers)][i] = 1
+
         self.transport_time = transport_time
         self.products_suppliers = products_suppliers
 
@@ -149,7 +155,7 @@ class SupplyChainEnv(gym.Env):
         initial_state = {
             "inventory": np.zeros(self.num_products, dtype=np.int64),
             "demand": np.zeros(self.num_products, dtype=np.int64),
-            "price": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 0),
+            "price": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price),
             "quantity": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
         }
         self.sell_price = np.mean(self.mean_price, axis=0) * (1 + self.sell_price_percentage)
