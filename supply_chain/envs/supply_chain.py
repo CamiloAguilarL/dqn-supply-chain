@@ -14,23 +14,24 @@ class SupplyChainEnv(gym.Env):
                  action_mode="discrete",
                  render_mode=None, 
                  render_fps=240, 
-                 num_periods=20, 
+                 num_periods=10, 
                  num_products=1,
-                 num_suppliers=4,
-                 min_demand=1000,
-                 max_demand=1500, 
-                 sell_price_percentage=0.1, 
-                 min_quantity=400,
-                 max_quantity=900, 
+                 num_suppliers=1,
+                 min_demand=400,
+                 max_demand=900, 
+                 sell_price_percentage=0.25, 
+                 min_quantity=1000,
+                 max_quantity=1500, 
                  perishability=0.1,
-                 buy_bins=2, 
-                 min_price=0.5, 
-                 max_price=1.2,
+                 buy_bins=5, 
+                 min_price=50, 
+                 max_price=120,
                  min_transport_time=500,
                  max_transport_time=600,
                  unit_transport_cost=1,
-                 backorder_price_percentage=2,
-                 vehicle_capacity=60,
+                 backorder_price_percentage=0.5,
+                 holding_cost_percentage=0.25,
+                 vehicle_capacity=6000,
                  loading_time=10,
                  travel_speed=60,
                  region_size = 250):
@@ -52,6 +53,7 @@ class SupplyChainEnv(gym.Env):
         self.max_transport_time = max_transport_time
         self.unit_transport_cost = unit_transport_cost
         self.backorder_price_percentage = backorder_price_percentage
+        self.holding_cost_percentage = holding_cost_percentage
         self.vehicle_capacity = vehicle_capacity
         self.loading_time = loading_time
         self.travel_speed = travel_speed
@@ -88,16 +90,16 @@ class SupplyChainEnv(gym.Env):
         if self.action_mode == "discrete":
             # Update inventory based on purchasing decision and existing inventory
             purchased_quantity = self.state['quantity'] * purchasing_decision/self.buy_bins
-            purchased_inventory = np.sum(purchased_quantity, axis=0, dtype=int)  # Total purchased per product
         else:
             purchased_quantity = purchasing_decision
-            purchased_inventory = np.sum(purchasing_decision, axis=0, dtype=int)
 
-        suppliers_visited = np.where(np.sum(purchasing_decision, axis=1) > 0, 1, 0)
+        purchased_inventory = np.sum(purchased_quantity, axis=0, dtype=int)
+        purchased_supplier = np.sum(purchasing_decision, axis=1, dtype=int)
+        vehicles_needed = np.ceil(purchased_supplier / self.vehicle_capacity)
 
         self.state['inventory'] = np.floor(self.state['inventory']*(1-self.perishability))
 
-        cost = np.sum(purchased_quantity * self.state['price']) + self.unit_transport_cost * np.sum(suppliers_visited * self.transport_time)
+        cost = np.sum(purchased_quantity * self.state['price'] / 100) + self.unit_transport_cost * np.sum(vehicles_needed * self.transport_time)
         self.state['inventory'] += purchased_inventory
 
         # Calculate sales and update inventory based on demand
@@ -105,26 +107,24 @@ class SupplyChainEnv(gym.Env):
         self.state['inventory'] -= sales
 
         # Calculate revenue from sales
-        revenue = np.sum(sales * self.sell_price)
+        revenue = np.sum(sales * self.sell_price / 100)
 
         # Calculate penalty for not meeting demand
-        penalty = np.sum((self.state['demand'] - sales) * self.backorder_price)
+        penalty = np.sum((self.state['demand'] - sales) * self.backorder_price / 100) + np.sum((self.state['inventory']) * self.holding_cost / 100)
         penalty = max(0, penalty)  # Ensure penalty is not negative
 
         # Calculate reward (revenue minus penalty)
         reward = revenue - cost - penalty
 
         # Update state randomly (for demand, price, and quantity)
-        self.state['demand'] = np.clip(self.np_random.normal(self.mean_demand, 0.1, self.num_products), 0, 2*self.mean_demand)
-        self.state['price'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price)
-        self.state['quantity'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
-        self.sell_price = np.mean(self.mean_price, axis=0) * (1 + self.sell_price_percentage)
-        self.backorder_price = self.sell_price * self.backorder_price_percentage
+        self.state['demand'] = np.clip(self.np_random.normal(self.mean_demand, 0.1*self.mean_demand, self.num_products), 0, 2*self.mean_demand)
+        self.state['price'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1*self.mean_price, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price)
+        self.state['quantity'] = np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1*self.mean_quantity, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
 
         # Check if the episode is done (here we check if we reached the last period)
         self.period += 1
         done = self.period >= self.num_periods
-        info = {}  # Additional info, if any
+        info = {"objective": revenue - cost}  # Additional info, if any
         return self.state, reward, done, False, info
     
     def reset(self, seed=None, options=None):
@@ -155,12 +155,29 @@ class SupplyChainEnv(gym.Env):
         initial_state = {
             "inventory": np.zeros(self.num_products, dtype=np.int64),
             "demand": np.zeros(self.num_products, dtype=np.int64),
-            "price": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price),
-            "quantity": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
+            "price": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1*self.mean_price, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price),
+            "quantity": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1*self.mean_quantity, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
         }
         self.sell_price = np.mean(self.mean_price, axis=0) * (1 + self.sell_price_percentage)
         self.backorder_price = self.sell_price * self.backorder_price_percentage
+        self.holding_cost = self.sell_price * self.holding_cost_percentage
+
         self.period = 0
         self.state = initial_state
         self.info = {}
         return self.state, self.info
+    
+    def generate_random_data(self, seed):
+        initial_state, info = self.reset(seed)
+        demand = [initial_state['demand']]
+        price = [initial_state['price']]
+        quantity = [initial_state['quantity']]
+        sell_price = self.sell_price
+        transport_time = self.transport_time
+        for i in range(1, self.num_periods):
+            demand.append(np.zeros(self.num_products, dtype=np.int64))
+            demand.append(np.clip(self.np_random.normal(self.mean_demand, 0.1*self.mean_demand, self.num_products), 0, 2*self.mean_demand))
+            price.append(np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1*self.mean_price, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price))
+            quantity.append(np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1*self.mean_quantity, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0))
+
+        return np.array(demand), np.array(price), np.array(quantity), np.array(sell_price), np.array(transport_time)

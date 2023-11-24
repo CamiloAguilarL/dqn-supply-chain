@@ -12,7 +12,7 @@ class SSAgent(AgentInterface):
         inventory = state['inventory']  # Assuming observation is the inventory level
         price = state['price']
         quantity = state['quantity']
-        action = np.zeros((self.env.unwrapped.num_suppliers, self.env.unwrapped.num_products), dtype=int)
+        action = np.zeros((self.env.num_suppliers, self.env.num_products), dtype=int)
         for i, product in enumerate(inventory):
             if product < self.reorder_point:
                 visited_suppliers = []

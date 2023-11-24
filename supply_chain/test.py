@@ -14,7 +14,7 @@ import pandas as pd
 # Use multiple agents to compare using box plots
 agents = [Agents.QLEARNING]
 seed = 42
-episodes = range(100)
+episodes = range(1000)
 
 agents_rewards = []
 single_rewards = []
@@ -31,7 +31,7 @@ for agent_name in agents:
     elif agent_name == Agents.QLEARNING:
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = QLearningAgent(env)
-        single_rewards = agent.train(num_episodes=20000, seed=seed, save=True, filename="q_table.npy")
+        single_rewards = agent.train(num_episodes=10000, seed=seed)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.RQ:
@@ -44,7 +44,11 @@ for agent_name in agents:
         from dqn import DQNAgent
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = DQNAgent(env)
-        single_rewards = agent.train(num_episodes=5000, seed=seed)
+        single_rewards = agent.train(num_episodes=1000, seed=seed, save=True)
+    elif agent_name == Agents.MIP:
+        from mip import MIPAgent
+        env = gymnasium.make('supply_chain/SupplyChain-v0')
+        agent = MIPAgent(env)
 
     if len(agents) > 1:
         for _ in episodes:
@@ -57,9 +61,9 @@ for agent_name in agents:
                 state = next_state
                 if terminated or truncated:
                     break
-            rewards.append(score/env.num_periods)
-            if _ % 50 == 0:
-                print(f"Agent: {agent_name}, Episode: {_}, Score: {score}")
+            rewards.append(info['objective'])
+            if _ % 100 == 0:
+                print(f"Agent: {agent_name}, Episode: {_}, Score: {info['objective']}")
         agents_rewards.append(rewards)
 
     env.close()
@@ -68,7 +72,7 @@ fig = plt.figure(figsize=(12, 6))
 
 if len(agents) <= 1:
     rewards_df = pd.DataFrame(single_rewards, columns=["Reward"])
-    rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=300).mean()
+    rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=25).mean()
     plt.plot(rewards_df["Moving Average"], label="Moving Average (10)", color="red")
 else:
     ax = fig.add_axes([0, 0, 1, 1])

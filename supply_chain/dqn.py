@@ -21,16 +21,16 @@ class DQNAgent(AgentInterface):
 
         model = Sequential()
         model.add(Flatten(input_shape=input_shape))
-        model.add(Dense(64, activation='relu'))
-        model.add(Dense(64, activation='relu'))
+        model.add(Dense(16, activation='relu'))
+        model.add(Dense(16, activation='relu'))
         model.add(Dense(actions, activation='linear'))
         model.compile(loss=Huber(), optimizer=Adam(lr=learning_rate), metrics=['accuracy'])
         self.model = model
 
         target_model = Sequential()
         target_model.add(Flatten(input_shape=input_shape))
-        target_model.add(Dense(64, activation='relu'))
-        target_model.add(Dense(64, activation='relu'))
+        target_model.add(Dense(16, activation='relu'))
+        target_model.add(Dense(16, activation='relu'))
         target_model.add(Dense(actions, activation='linear'))
         target_model.compile(loss=Huber(), optimizer=Adam(lr=learning_rate), metrics=['accuracy'])
         target_model.set_weights(model.get_weights())
@@ -54,14 +54,12 @@ class DQNAgent(AgentInterface):
         self.actions_array = space
 
     def update(self, state, action, next_state, reward):
-        learning_rate = 0.7 # Learning rate
-        discount_factor = 0.618
 
-        MIN_REPLAY_SIZE = 1000
+        MIN_REPLAY_SIZE = 10
         if len(self.replay_memory) < MIN_REPLAY_SIZE:
             return
 
-        batch_size = 64 * 2
+        batch_size = 8
         mini_batch = random.sample(self.replay_memory, batch_size)
         current_states = np.array([self._get_state_array(transition[0]) for transition in mini_batch])
         current_qs_list = self.model.predict(current_states, verbose = 0)
@@ -73,10 +71,10 @@ class DQNAgent(AgentInterface):
         Y = []
 
         for index, (observation, action, reward, new_observation, done) in enumerate(mini_batch):
-            max_future_q = reward + discount_factor * np.max(future_qs_list[index])
+            max_future_q = reward + self.discount_factor * np.max(future_qs_list[index])
             action_index = self._get_action_index(action)
             current_qs = current_qs_list[index]
-            current_qs[action_index] = (1 - learning_rate) * current_qs[action_index] + learning_rate * max_future_q
+            current_qs[action_index] = (1 - self.learning_rate) * current_qs[action_index] + self.learning_rate * max_future_q
             observation = self._get_state_array(observation)
             X.append(observation)
             Y.append(current_qs)
@@ -86,7 +84,7 @@ class DQNAgent(AgentInterface):
         return np.concatenate([state[key].flatten() for key in state])
 
     def _get_action_index(self, action):
-        action_key = tuple((i, j, action[i, j]) for i in range(self.env.unwrapped.num_suppliers) for j in range(self.env.unwrapped.num_products))
+        action_key = tuple((i, j, action[i, j]) for i in range(self.env.num_suppliers) for j in range(self.env.num_products))
         return self.actions_array.index(action_key)
     
     def choose_action(self, state, greedy=False):
@@ -100,7 +98,7 @@ class DQNAgent(AgentInterface):
             action = np.argmax(action_index)
             action_key = self.actions_array[action]
 
-        action = np.zeros((self.env.unwrapped.num_suppliers, self.env.unwrapped.num_products), dtype=int)
+        action = np.zeros((self.env.num_suppliers, self.env.num_products), dtype=int)
         for i, j, k in action_key:
             action[i][j] = k
         return action
@@ -132,10 +130,10 @@ class DQNAgent(AgentInterface):
                             self.target_model.set_weights(self.model.get_weights())
                             update_target = 0
                         break
-                rewards.append(score/self.env.unwrapped.num_periods)
+                rewards.append(score/self.env.num_periods)
                 self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
-                if episode % 50 == 0:
-                    print(f"Training Agent: DQN, Episode: {episode}, Score: {score}")
+                if episode % 10 == 0:
+                    print(f"Training Agent: DQN, Episode: {episode}, Score: {score/self.env.num_periods}")
             if save:
                 self.model.save(filename)
 
