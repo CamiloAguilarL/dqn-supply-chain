@@ -6,4 +6,3 @@ class Agents(Enum):
     SS = 3
     DQN = 4
     QLEARNING = 5
-    MIP = 6

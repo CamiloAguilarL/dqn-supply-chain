@@ -16,25 +16,25 @@ class SupplyChainEnv(gym.Env):
                  render_fps=240, 
                  num_periods=10, 
                  num_products=1,
-                 num_suppliers=1,
+                 num_suppliers=2,
                  min_demand=400,
                  max_demand=900, 
                  sell_price_percentage=0.25, 
                  min_quantity=1000,
                  max_quantity=1500, 
                  perishability=0.1,
-                 buy_bins=5, 
+                 buy_bins=7, 
                  min_price=50, 
                  max_price=120,
                  min_transport_time=500,
                  max_transport_time=600,
                  unit_transport_cost=1,
                  backorder_price_percentage=0.5,
-                 holding_cost_percentage=0.25,
+                 holding_cost_percentage=0.5,
                  vehicle_capacity=6000,
                  loading_time=10,
                  travel_speed=60,
-                 region_size = 250):
+                 region_size=250):
         
         self.action_mode = action_mode
         self.num_periods = num_periods
@@ -115,6 +115,9 @@ class SupplyChainEnv(gym.Env):
 
         # Calculate reward (revenue minus penalty)
         reward = revenue - cost - penalty
+        # print(revenue)
+        # print(np.sum(purchased_quantity * self.state['price'] / 100))
+        # print(self.unit_transport_cost * np.sum(vehicles_needed * self.transport_time))
 
         # Update state randomly (for demand, price, and quantity)
         self.state['demand'] = np.clip(self.np_random.normal(self.mean_demand, 0.1*self.mean_demand, self.num_products), 0, 2*self.mean_demand)
@@ -154,7 +157,7 @@ class SupplyChainEnv(gym.Env):
 
         initial_state = {
             "inventory": np.zeros(self.num_products, dtype=np.int64),
-            "demand": np.zeros(self.num_products, dtype=np.int64),
+            "demand": np.clip(self.np_random.normal(self.mean_demand, 0.1*self.mean_demand, self.num_products), 0, 2*self.mean_demand),
             "price": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1*self.mean_price, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price),
             "quantity": np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1*self.mean_quantity, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0)
         }
@@ -175,7 +178,6 @@ class SupplyChainEnv(gym.Env):
         sell_price = self.sell_price
         transport_time = self.transport_time
         for i in range(1, self.num_periods):
-            demand.append(np.zeros(self.num_products, dtype=np.int64))
             demand.append(np.clip(self.np_random.normal(self.mean_demand, 0.1*self.mean_demand, self.num_products), 0, 2*self.mean_demand))
             price.append(np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_price, 0.1*self.mean_price, (self.num_suppliers, self.num_products)), 1, 2*self.mean_price - 1), 10*self.mean_price))
             quantity.append(np.where(self.products_suppliers == 1, np.clip(self.np_random.normal(self.mean_quantity, 0.1*self.mean_quantity, (self.num_suppliers, self.num_products)), 0, 2*self.mean_quantity), 0))

@@ -3,7 +3,7 @@ import numpy as np
 from agent_interface import AgentInterface
 
 class SSAgent(AgentInterface):
-    def __init__(self, env, reorder_percentage=1, replenish_percentage=3):
+    def __init__(self, env, reorder_percentage=0.5, replenish_percentage=2.5):
         self.env = env
         self.reorder_point = reorder_percentage*env.max_demand
         self.replenish_quantity = replenish_percentage*env.max_demand

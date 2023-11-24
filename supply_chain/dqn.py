@@ -105,11 +105,11 @@ class DQNAgent(AgentInterface):
 
 
     def train(self, num_episodes=1000, load=False, save=False, train=True, filename="dqn.keras", seed=None):
+        rewards = []
         if load:
             self.model = load_model(filename)
             self.target_model.set_weights(self.model.get_weights())
         if train:
-            rewards = []
             update_target = 0
 
             for episode in range(num_episodes):
@@ -130,11 +130,11 @@ class DQNAgent(AgentInterface):
                             self.target_model.set_weights(self.model.get_weights())
                             update_target = 0
                         break
-                rewards.append(score/self.env.num_periods)
+                rewards.append(score)
                 self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
                 if episode % 10 == 0:
-                    print(f"Training Agent: DQN, Episode: {episode}, Score: {score/self.env.num_periods}")
+                    print(f"Training Agent: DQN, Episode: {episode}, Score: {score}")
             if save:
                 self.model.save(filename)
 
-            return rewards
+        return rewards

@@ -19,15 +19,17 @@ class QLearningAgent(AgentInterface):
         self.demand_intervals = np.linspace(env.min_demand, env.max_demand, num=bins)
         self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins) 
         self.quantity_intervals = np.linspace(env.min_quantity, env.max_quantity, num=bins)
+        self.transport_intervals = np.linspace(env.min_transport_time, env.max_transport_time, num=bins)
         # Initialize Q-table as a dictionary
         self.q_table = {}
 
     def _get_state_key(self, state):
         inventory_level = tuple(np.digitize(state["inventory"], self.inventory_intervals))
         demand_level = tuple(np.digitize(state["demand"], self.demand_intervals))
+        transport_level = tuple(np.digitize(self.env.transport_time, self.transport_intervals))
         price_level = tuple([tuple(np.digitize(price, self.price_intervals)) for price in state["price"]])
         quantity_level = tuple([tuple(np.digitize(quantity, self.quantity_intervals)) for quantity in state["quantity"]])
-        return inventory_level, demand_level, price_level, quantity_level
+        return inventory_level, demand_level, transport_level, price_level, quantity_level
     
     def _get_action_key(self, action):
         return tuple((i, j, action[i, j]) for i in range(self.env.num_suppliers) for j in range(self.env.num_products))
@@ -86,10 +88,10 @@ class QLearningAgent(AgentInterface):
         )
         
     def train(self, num_episodes=1000, load=False, save=False, train=True, filename="q_table.npy", seed=None):
+        rewards = []
         if load:
             self.q_table = np.load(filename, allow_pickle=True).item()
         if train:
-            rewards = []
             for _ in range(num_episodes):
                 state, info = self.env.reset(seed=seed)
                 score = 0
@@ -99,7 +101,7 @@ class QLearningAgent(AgentInterface):
                     next_state, reward, terminated, truncated, info = self.env.step(action)
                     self.update(prev_state, action, next_state, reward)
                     state = next_state
-                    score += info["objective"]
+                    score += reward
                     if terminated or truncated:
                         break
                 rewards.append(score)
@@ -109,4 +111,26 @@ class QLearningAgent(AgentInterface):
             if save:
                 np.save(filename, self.q_table)
 
-            return rewards
+        return rewards
+
+    
+    def test_seed(self, load=True, filename="q_table.npy", seed=None):
+
+        if load:
+            self.q_table = np.load(filename, allow_pickle=True).item()
+
+        state, info = self.env.reset(seed=seed)
+        score = 0
+        while True:
+            action = self.choose_action(state, greedy=True)
+            prev_state = copy.deepcopy(state)
+            next_state, reward, terminated, truncated, info = self.env.step(action)
+            # print(action)
+            # print(state)
+            # print("==========================")
+            state = next_state
+            score += info["objective"]
+            if terminated or truncated:
+                break
+        
+        print(score)

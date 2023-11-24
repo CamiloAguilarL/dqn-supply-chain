@@ -18,7 +18,7 @@ class MIP():
         self.suppliers = range(self.env.num_suppliers)
         self.periods = range(self.env.num_periods)
 
-    def run_model(self):
+    def run_model(self, print_results=True):
         m = Model("Modelo Proyecto")
         I = m.addVars(range(self.env.num_products), range(self.env.num_periods), vtype=GRB.CONTINUOUS, name="I")
         X = m.addVars(range(self.env.num_suppliers), range(self.env.num_periods), vtype=GRB.INTEGER, name="X")
@@ -38,3 +38,6 @@ class MIP():
                     m.addConstr(Z[s, p, t] <= self.quantity[t, s, p])
 
         print(m.optimize())
+        if print_results:
+            for v in m.getVars():
+                print('%s %g' % (v.varName, v.x))

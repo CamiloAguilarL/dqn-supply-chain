@@ -5,7 +5,7 @@ import copy
 from agent_interface import AgentInterface
 
 class QLearningSSAgent(AgentInterface):
-    def __init__(self, env, replenish_percentage=3, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00001):
+    def __init__(self, env, replenish_percentage=2.5, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00001):
         self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
@@ -18,7 +18,7 @@ class QLearningSSAgent(AgentInterface):
         self.replenish_quantity = replenish_percentage*env.max_demand
         self.inventory_intervals = np.linspace(0, env.max_demand, num=bins)
         self.demand_intervals = np.linspace(env.min_demand, env.max_demand, num=bins)
-        self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins) 
+        self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins)
         self.quantity_intervals = np.linspace(env.min_quantity, env.max_quantity, num=bins)
 
         # Initialize Q-table as a dictionary
@@ -27,8 +27,10 @@ class QLearningSSAgent(AgentInterface):
     def _get_state_key(self, state):
         inventory_level = tuple(np.digitize(state["inventory"], self.inventory_intervals))
         demand_level = tuple(np.digitize(state["demand"], self.demand_intervals))
+        transport_level = tuple(np.digitize(self.env.transport_time, self.transport_intervals))
         price_level = tuple([tuple(np.digitize(price, self.price_intervals)) for price in state["price"]])
-        return inventory_level, demand_level, price_level
+        quantity_level = tuple([tuple(np.digitize(quantity, self.quantity_intervals)) for quantity in state["quantity"]])
+        return inventory_level, demand_level, transport_level, price_level, quantity_level
     
     def _get_action_key(self, action):
         products_sum = np.sum(action, axis=0)
@@ -119,10 +121,10 @@ class QLearningSSAgent(AgentInterface):
                     score += reward
                     if terminated or truncated:
                         break
-                rewards.append(score/self.env.num_periods)
+                rewards.append(score)
                 self.exploration_prob = max(self.exploration_prob * (1-self.decay_rate), self.min_exploration_prob)
                 if _ % 100 == 0:
-                    print(f"Training Agent: Q Learning SS, Episode: {_}, Score: {score/self.env.num_periods}")
+                    print(f"Training Agent: Q Learning SS, Episode: {_}, Score: {score}")
             if save:
                 np.save(filename, self.q_table)
 
