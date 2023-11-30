@@ -11,9 +11,8 @@ import copy
 
 
 class DQNAgent(AgentInterface):
-    def __init__(self, env, learning_rate=0.2, discount_factor=0.9, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
+    def __init__(self, env, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
         self.env = env
-        learning_rate = 0.001
         sample_observation = env.observation_space.sample()
         flattened_observation = np.concatenate([sample_observation[key].flatten() for key in sample_observation])
         input_shape = flattened_observation.shape
@@ -55,7 +54,7 @@ class DQNAgent(AgentInterface):
 
     def update(self, state, action, next_state, reward):
 
-        MIN_REPLAY_SIZE = 10
+        MIN_REPLAY_SIZE = 200
         if len(self.replay_memory) < MIN_REPLAY_SIZE:
             return
 
@@ -121,12 +120,12 @@ class DQNAgent(AgentInterface):
                     prev_state = copy.deepcopy(state)                
                     next_state, reward, terminated, truncated, info = self.env.step(action)
                     self.replay_memory.append([state, action, reward, next_state, terminated])
-                    if update_target % 2 == 0 or terminated:
+                    if update_target % 4 == 0 or terminated:
                         self.update(prev_state, action, next_state, reward)
                     state = next_state
                     score += reward
                     if terminated or truncated:
-                        if update_target >= 25:
+                        if update_target >= 100:
                             self.target_model.set_weights(self.model.get_weights())
                             update_target = 0
                         break

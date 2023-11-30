@@ -20,6 +20,7 @@ class QLearningSSAgent(AgentInterface):
         self.demand_intervals = np.linspace(env.min_demand, env.max_demand, num=bins)
         self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins)
         self.quantity_intervals = np.linspace(env.min_quantity, env.max_quantity, num=bins)
+        self.transport_intervals = np.linspace(env.min_transport_time, env.max_transport_time, num=bins)
 
         # Initialize Q-table as a dictionary
         self.q_table = {}

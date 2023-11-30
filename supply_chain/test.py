@@ -35,7 +35,7 @@ agents = {
     Agents.DQN: {
         "name": "DQN",
         "run": True,
-        "num_episodes": 10000,
+        "num_episodes": 5000,
     },
 }
 seed = None
@@ -80,7 +80,7 @@ for agent_name in agents.keys():
         rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=5).mean()
         plt.plot(rewards_df["Moving Average"], label="Moving Average (10)", color="red")
         plt.savefig(f'{agents[agent_name]["name"]}-{seed}-{agents[agent_name]["num_episodes"]}-{time.strftime("%H-%M-%S", time.localtime())}.png')
-        plt.show()
+        # plt.show()
 
     if comparison and agents[agent_name]["run"]:
         for _ in episodes:
@@ -107,4 +107,4 @@ if len(agents_rewards) > 1:
     ax = fig.add_axes([0, 0, 1, 1])
     ax.boxplot(agents_rewards, showfliers=False)
     plt.savefig(f'{"_".join(agents_names)}-{len(episodes)}-{time.strftime("%H-%M-%S", time.localtime())}.png')
-    plt.show()
+    # plt.show()
