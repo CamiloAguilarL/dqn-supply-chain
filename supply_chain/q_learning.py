@@ -5,7 +5,7 @@ import copy
 from agent_interface import AgentInterface
 
 class QLearningAgent(AgentInterface):
-    def __init__(self, env, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
+    def __init__(self, env, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00002):
         self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
@@ -101,7 +101,7 @@ class QLearningAgent(AgentInterface):
                     next_state, reward, terminated, truncated, info = self.env.step(action)
                     self.update(prev_state, action, next_state, reward)
                     state = next_state
-                    score += reward
+                    score += info["objective"]
                     if terminated or truncated:
                         break
                 rewards.append(score)

@@ -5,7 +5,7 @@ import copy
 from agent_interface import AgentInterface
 
 class QLearningSSAgent(AgentInterface):
-    def __init__(self, env, replenish_percentage=2.5, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00001):
+    def __init__(self, env, replenish_percentage=1.5, bins=5, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00002):
         self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
@@ -18,7 +18,7 @@ class QLearningSSAgent(AgentInterface):
         self.replenish_quantity = replenish_percentage*env.max_demand
         self.inventory_intervals = np.linspace(0, env.max_demand, num=bins)
         self.demand_intervals = np.linspace(env.min_demand, env.max_demand, num=bins)
-        self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins)
+        self.price_intervals = np.linspace(env.min_price, env.max_price, num=bins) 
         self.quantity_intervals = np.linspace(env.min_quantity, env.max_quantity, num=bins)
         self.transport_intervals = np.linspace(env.min_transport_time, env.max_transport_time, num=bins)
 
@@ -48,13 +48,14 @@ class QLearningSSAgent(AgentInterface):
         return space
 
     def _get_action_value(self, state, action_key):
+        inventory = state['inventory']
         price = state['price']
         quantity = state['quantity']
         action = np.zeros((self.env.num_suppliers, self.env.num_products), dtype=int)
         for i, buy in action_key:
             if buy == 1:
                 visited_suppliers = []
-                total_quantity = 0
+                total_quantity = inventory[i]
                 while len(visited_suppliers) < self.env.num_suppliers:
                     min_price = self.env.max_price * 10
                     min_price_index = -1
@@ -65,8 +66,8 @@ class QLearningSSAgent(AgentInterface):
                     visited_suppliers.append(min_price_index)
                     buy_quantity = min(self.replenish_quantity - total_quantity, quantity[min_price_index, i])
                     total_quantity += buy_quantity
-                    action[j,i] = buy_quantity
-                    if total_quantity > self.replenish_quantity:
+                    action[min_price_index,i] = buy_quantity
+                    if total_quantity >= self.replenish_quantity:
                         break
         return action
 
@@ -106,10 +107,10 @@ class QLearningSSAgent(AgentInterface):
         )
 
     def train(self, num_episodes=1000, load=False, save=False, train=True, filename="q_table.npy", seed=None):
+        rewards = []
         if load:
             self.q_table = np.load(filename, allow_pickle=True).item()
         if train:
-            rewards = []
             for _ in range(num_episodes):
                 state, info = self.env.reset(seed=seed)
                 score = 0
@@ -119,7 +120,7 @@ class QLearningSSAgent(AgentInterface):
                     next_state, reward, terminated, truncated, info = self.env.step(action)
                     self.update(prev_state, action, next_state, reward)
                     state = next_state
-                    score += reward
+                    score += info["objective"]
                     if terminated or truncated:
                         break
                 rewards.append(score)
@@ -129,4 +130,4 @@ class QLearningSSAgent(AgentInterface):
             if save:
                 np.save(filename, self.q_table)
 
-            return rewards
+        return rewards

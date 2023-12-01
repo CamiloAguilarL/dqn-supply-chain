@@ -11,7 +11,7 @@ import copy
 
 
 class DQNAgent(AgentInterface):
-    def __init__(self, env, learning_rate=0.2, discount_factor=0.8, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.00005):
+    def __init__(self, env, learning_rate=0.3, discount_factor=0.7, exploration_prob=0.3, min_exploration_prob=0.01, decay_rate=0.0005):
         self.env = env
         sample_observation = env.observation_space.sample()
         flattened_observation = np.concatenate([sample_observation[key].flatten() for key in sample_observation])
@@ -20,22 +20,24 @@ class DQNAgent(AgentInterface):
 
         model = Sequential()
         model.add(Flatten(input_shape=input_shape))
-        model.add(Dense(16, activation='relu'))
-        model.add(Dense(16, activation='relu'))
+        model.add(Dense(64, activation='relu'))
+        model.add(Dense(64, activation='relu'))
+        model.add(Dense(32, activation='relu'))
         model.add(Dense(actions, activation='linear'))
         model.compile(loss=Huber(), optimizer=Adam(lr=learning_rate), metrics=['accuracy'])
         self.model = model
 
         target_model = Sequential()
         target_model.add(Flatten(input_shape=input_shape))
-        target_model.add(Dense(16, activation='relu'))
-        target_model.add(Dense(16, activation='relu'))
+        target_model.add(Dense(64, activation='relu'))
+        target_model.add(Dense(64, activation='relu'))
+        target_model.add(Dense(32, activation='relu'))
         target_model.add(Dense(actions, activation='linear'))
         target_model.compile(loss=Huber(), optimizer=Adam(lr=learning_rate), metrics=['accuracy'])
         target_model.set_weights(model.get_weights())
         self.target_model = target_model
 
-        self.replay_memory = deque(maxlen=50_000)
+        self.replay_memory = deque(maxlen=10000000)
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.exploration_prob = exploration_prob
@@ -54,11 +56,11 @@ class DQNAgent(AgentInterface):
 
     def update(self, state, action, next_state, reward):
 
-        MIN_REPLAY_SIZE = 200
-        if len(self.replay_memory) < MIN_REPLAY_SIZE:
+        batch_size = 64
+        
+        if len(self.replay_memory) < batch_size:
             return
 
-        batch_size = 8
         mini_batch = random.sample(self.replay_memory, batch_size)
         current_states = np.array([self._get_state_array(transition[0]) for transition in mini_batch])
         current_qs_list = self.model.predict(current_states, verbose = 0)
@@ -119,8 +121,8 @@ class DQNAgent(AgentInterface):
                     action = self.choose_action(state)
                     prev_state = copy.deepcopy(state)                
                     next_state, reward, terminated, truncated, info = self.env.step(action)
-                    self.replay_memory.append([state, action, reward, next_state, terminated])
-                    if update_target % 4 == 0 or terminated:
+                    self.replay_memory.append([prev_state, action, reward, next_state, terminated])
+                    if update_target % 2 == 0 or terminated:
                         self.update(prev_state, action, next_state, reward)
                     state = next_state
                     score += reward

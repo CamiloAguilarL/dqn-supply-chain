@@ -3,7 +3,7 @@ import numpy as np
 from agent_interface import AgentInterface
 
 class SSAgent(AgentInterface):
-    def __init__(self, env, reorder_percentage=0.5, replenish_percentage=2.5):
+    def __init__(self, env, reorder_percentage=0.5, replenish_percentage=1.5):
         self.env = env
         self.reorder_point = reorder_percentage*env.max_demand
         self.replenish_quantity = replenish_percentage*env.max_demand
@@ -30,7 +30,6 @@ class SSAgent(AgentInterface):
                     action[min_price_index,i] = buy_quantity
                     if total_quantity >= self.replenish_quantity:
                         break
-
         return action
     
     def update(self, state, action, next_state, reward):

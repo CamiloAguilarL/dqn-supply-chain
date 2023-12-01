@@ -3,7 +3,7 @@ import numpy as np
 from agent_interface import AgentInterface
 
 class RQAgent(AgentInterface):
-    def __init__(self, env, reorder_percentage=0.5, order_percentage=2):
+    def __init__(self, env, reorder_percentage=0.5, order_percentage=1.5):
         self.env = env
         self.reorder_point = reorder_percentage*env.max_demand
         self.order_quantity = order_percentage*env.max_demand

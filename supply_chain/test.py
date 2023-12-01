@@ -16,21 +16,21 @@ import time
 agents = {
     Agents.QLEARNINGSS: {
         "name": "QLEARNINGSS",
-        "run": False,
-        "num_episodes": 50000,
+        "run": True,
+        "num_episodes": 250000,
     },
     Agents.QLEARNING: {
         "name": "QLEARNING",
         "run": True,
-        "num_episodes": 100000,
+        "num_episodes": 250000,
     },
     Agents.RQ: {
         "name": "RQ",
-        "run": False,
+        "run": True,
     },
     Agents.SS: {
         "name": "SS",
-        "run": False,
+        "run": True,
     },
     Agents.DQN: {
         "name": "DQN",
@@ -52,13 +52,13 @@ for agent_name in agents.keys():
     if agent_name == Agents.QLEARNINGSS and agents[agent_name]["run"]:
         env = gymnasium.make('supply_chain/SupplyChain-v0', action_mode='continuous')
         agent = QLearningSSAgent(env)
-        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed)
+        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed, save=False, load=True, filename="q_table_ss.npy", train=False)
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
     elif agent_name == Agents.QLEARNING and agents[agent_name]["run"]:
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = QLearningAgent(env)
-        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed, save=False, load=True, filename="q_table_100000.npy", train=False)
+        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed, save=False, load=True, filename="q_table.npy", train=False)
         # agent.test_seed(seed=seed, filename="q_table_50000.npy")
         # print(agent.q_table)
         # print({outer_key: max(inner_dict, key=inner_dict.get) if inner_dict else None for outer_key, inner_dict in agent.q_table.items()})
@@ -72,14 +72,30 @@ for agent_name in agents.keys():
         from dqn import DQNAgent
         env = gymnasium.make('supply_chain/SupplyChain-v0')
         agent = DQNAgent(env)
-        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed, save=True, load=True, train=True)
+        single_rewards = agent.train(num_episodes=agents[agent_name]["num_episodes"], seed=seed, save=False, load=True, train=False)
 
     if len(single_rewards) > 0:
         fig = plt.figure(figsize=(12, 6))
         rewards_df = pd.DataFrame(single_rewards, columns=["Reward"])
-        rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=5).mean()
-        plt.plot(rewards_df["Moving Average"], label="Moving Average (10)", color="red")
-        plt.savefig(f'{agents[agent_name]["name"]}-{seed}-{agents[agent_name]["num_episodes"]}-{time.strftime("%H-%M-%S", time.localtime())}.png')
+        rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=100).mean()
+        plt.plot(rewards_df["Moving Average"], color="red")
+        
+        # plt.axhline(y=1463.68, xmin=0, xmax=len(single_rewards), linestyle="--", color='black')
+        # plt.axhline(y=275.41763821158077, xmin=0, xmax=len(single_rewards), linestyle="--", color='black')
+        # plt.title("Convergencia de los agentes de Q Learning (Aleatoria)")
+        # rewards_df = pd.DataFrame(single_rewards_ss, columns=["Reward"])
+        # rewards_df["Moving Average"] = rewards_df["Reward"].rolling(window=1500).mean()
+        # plt.plot(rewards_df["Moving Average"], label="Q Learning SS", color="b")
+        # plt.grid(axis = 'y')
+        # plt.locator_params(nbins=10)
+        
+        # plt.legend()
+        # plt.xlabel("Episodios")
+        # plt.ylabel("Recompensa ($)")
+
+        # plt.savefig(f'QLEARNING vs QLEARNINGSS-Random.png')
+        
+        plt.savefig(f'assets/{agents[agent_name]["name"]}-{seed}-{agents[agent_name]["num_episodes"]}-{time.strftime("%H-%M-%S", time.localtime())}.png')
         # plt.show()
 
     if comparison and agents[agent_name]["run"]:
@@ -104,7 +120,12 @@ for agent_name in agents.keys():
 
 if len(agents_rewards) > 1:
     fig = plt.figure(figsize=(12, 6))
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.boxplot(agents_rewards, showfliers=False)
-    plt.savefig(f'{"_".join(agents_names)}-{len(episodes)}-{time.strftime("%H-%M-%S", time.localtime())}.png')
+    plt.boxplot(agents_rewards, showfliers=False, labels=agents_names)
+    plt.grid(axis = 'y')
+    plt.locator_params(nbins=10)
+    
+    plt.title("Comparación de los agentes (Aleatoria)")
+    plt.ylabel("Recompensa ($)")
+
+    plt.savefig(f'assets/{"_".join(agents_names)}-{len(episodes)}-{time.strftime("%H-%M-%S", time.localtime())}.png')
     # plt.show()
