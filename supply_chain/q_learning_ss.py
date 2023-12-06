@@ -120,7 +120,7 @@ class QLearningSSAgent(AgentInterface):
                     next_state, reward, terminated, truncated, info = self.env.step(action)
                     self.update(prev_state, action, next_state, reward)
                     state = next_state
-                    score += info["objective"]
+                    score += reward
                     if terminated or truncated:
                         break
                 rewards.append(score)

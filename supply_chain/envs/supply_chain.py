@@ -14,7 +14,7 @@ class SupplyChainEnv(gym.Env):
                  action_mode="discrete",
                  render_mode=None, 
                  render_fps=240, 
-                 num_periods=10, 
+                 num_periods=20, 
                  num_products=1,
                  num_suppliers=2,
                  min_demand=400,
